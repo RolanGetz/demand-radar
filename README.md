@@ -217,9 +217,15 @@ GET https://oauth.reddit.com/search
 It contains no code that posts, comments, votes, messages, or modifies anything
 on Reddit.
 
+Every request identifies itself in the format Reddit's API rules mandate —
+`<platform>:<app ID>:<version> (by /u/<username>)` — so the operating account is
+configuration rather than a constant. Collection refuses to run without
+`REDDIT_USERNAME` rather than misidentifying itself.
+
 Access to Reddit's Data API requires approval under Reddit's
 [Responsible Builder Policy](https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy);
-set `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` in `.env` once you have it.
+set `REDDIT_CLIENT_ID`, `REDDIT_CLIENT_SECRET`, and `REDDIT_USERNAME` in `.env`
+once you have it.
 Without Reddit credentials the rest of the tool still works — Hacker News needs
 no key at all, and a failing or unconfigured source never sinks a run.
 
@@ -228,7 +234,7 @@ no key at all, and a failing or unconfigured source never sinks a run.
 ## Development
 
 ```bash
-pytest          # 401 tests, fully offline (no API keys needed or used)
+pytest          # 407 tests, fully offline (no API keys needed or used)
 ruff check .
 ```
 
