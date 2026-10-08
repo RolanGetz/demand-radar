@@ -18,6 +18,7 @@ from datetime import datetime, timezone
 
 import httpx
 
+from demand_radar import __version__
 from demand_radar.data_plane.collectors.base import CollectedPage, Collector
 from demand_radar.domain import Signal
 
@@ -25,6 +26,10 @@ _SEARCH = "https://oauth.reddit.com/search"
 _SUBREDDIT_SEARCH = "https://oauth.reddit.com/r/{subreddit}/search"
 _TOKEN_API = "https://www.reddit.com/api/v1/access_token"
 _MAX_PER_PAGE = 100
+
+#: Reddit mandates this exact shape and throttles clients that ignore it:
+#: ``<platform>:<app ID>:<version string> (by /u/<reddit username>)``.
+_USER_AGENT = "linux:demand-radar:v{version} (by /u/{username})"
 
 #: Reddit's own window buckets. A narrower one than the research window keeps
 #: the API from paging through years of history we would only discard locally.
@@ -46,6 +51,7 @@ class RedditCollector(Collector):
         client_id: str | None = None,
         client_secret: str | None = None,
         access_token: str | None = None,
+        username: str | None = None,
         subreddits: list[str] | None = None,
         include_comments: bool = False,
         **options,
@@ -54,6 +60,7 @@ class RedditCollector(Collector):
         self.client_id = client_id
         self.client_secret = client_secret
         self.access_token = access_token
+        self.username = (username or "").strip().lstrip("/").removeprefix("u/") or None
         self.subreddits = normalize_subreddits(subreddits or [])
         self.include_comments = include_comments
 
@@ -76,7 +83,7 @@ class RedditCollector(Collector):
         examined = 0
         next_cursors: dict[str, str] = {}
 
-        with self._client() as client:
+        with self._client(headers=self._headers()) as client:
             self._authorize(client)
             for subreddit in targets:
                 key = subreddit or ""
@@ -161,6 +168,21 @@ class RedditCollector(Collector):
                 )
             )
         return signals
+
+    def _headers(self) -> dict[str, str]:
+        """Identify the client the way Reddit's API rules require.
+
+        The operating account is part of the mandated format, so a run without
+        a configured username would misidentify itself to Reddit. That is a
+        policy violation rather than a cosmetic default, so it fails loudly
+        instead of falling back to the shared collector User-Agent.
+        """
+        if not self.username:
+            raise RuntimeError(
+                "Reddit requires the operating account in the User-Agent. "
+                "Set REDDIT_USERNAME to your Reddit username."
+            )
+        return {"User-Agent": _USER_AGENT.format(version=__version__, username=self.username)}
 
     def _authorize(self, client: httpx.Client) -> None:
         # Cache the minted token on the instance so a multi-page backfill (one

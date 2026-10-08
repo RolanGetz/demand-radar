@@ -6,10 +6,22 @@ import httpx
 import pytest
 import respx
 
+from demand_radar import __version__
 from demand_radar.data_plane.collectors import RedditCollector
 
 _SEARCH = "https://oauth.reddit.com/search"
 _TOKEN = "https://www.reddit.com/api/v1/access_token"
+
+
+def _collector(**options):
+    """Build a collector with the mandatory operating account already set.
+
+    Reddit requires the username in every request's User-Agent, so a collector
+    without one refuses to run. Tests that are not about that rule supply it
+    here rather than repeating it.
+    """
+    options.setdefault("username", "tester")
+    return RedditCollector(**options)
 
 
 def _listing(*children, after=None):
@@ -36,7 +48,7 @@ def test_parses_a_listing_into_signals():
             ),
         )
     )
-    page = RedditCollector(access_token="token").collect("english calls", limit=5)
+    page = _collector(access_token="token").collect("english calls", limit=5)
 
     signal = page.signals[0]
     assert signal.source == "reddit"
@@ -54,7 +66,7 @@ def test_existing_token_is_used_without_minting_a_new_one():
     token_route = respx.post(_TOKEN)
     search_route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    RedditCollector(access_token="supplied").collect("acme")
+    _collector(access_token="supplied").collect("acme")
 
     assert not token_route.called
     assert search_route.calls.last.request.headers["Authorization"] == "Bearer supplied"
@@ -67,7 +79,7 @@ def test_app_credentials_mint_a_token_once_across_pages():
     )
     search_route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    collector = RedditCollector(client_id="id", client_secret="secret")
+    collector = _collector(client_id="id", client_secret="secret")
     collector.collect("acme")
     collector.collect("acme", cursor="t3_next")
 
@@ -78,20 +90,20 @@ def test_app_credentials_mint_a_token_once_across_pages():
 @respx.mock
 def test_missing_credentials_raise_a_actionable_error():
     with pytest.raises(RuntimeError, match="REDDIT_CLIENT_ID"):
-        RedditCollector().collect("acme")
+        _collector().collect("acme")
 
 
 @respx.mock
 def test_token_response_without_a_token_is_rejected():
     respx.post(_TOKEN).mock(return_value=httpx.Response(200, json={"error": "unauthorized"}))
     with pytest.raises(RuntimeError, match="did not contain an access token"):
-        RedditCollector(client_id="id", client_secret="secret").collect("acme")
+        _collector(client_id="id", client_secret="secret").collect("acme")
 
 
 @respx.mock
 def test_cursor_is_forwarded_as_the_after_parameter():
     route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
-    RedditCollector(access_token="t").collect("acme", cursor="t3_prev")
+    _collector(access_token="t").collect("acme", cursor="t3_prev")
     assert route.calls.last.request.url.params["after"] == "t3_prev"
 
 
@@ -100,13 +112,13 @@ def test_next_cursor_comes_from_the_listing():
     respx.get(_SEARCH).mock(
         return_value=httpx.Response(200, json=_listing({"id": "x", "title": "acme"}, after="t3_more"))
     )
-    assert RedditCollector(access_token="t").collect("acme").next_cursor == "t3_more"
+    assert _collector(access_token="t").collect("acme").next_cursor == "t3_more"
 
 
 @respx.mock
 def test_limit_is_capped_at_the_api_maximum():
     route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
-    RedditCollector(access_token="t").collect("acme", limit=500)
+    _collector(access_token="t").collect("acme", limit=500)
     assert route.calls.last.request.url.params["limit"] == "100"
 
 
@@ -118,7 +130,7 @@ def test_entry_without_permalink_falls_back_to_the_outbound_url():
             json=_listing({"id": "y", "title": "acme", "url": "https://elsewhere.test/post"}),
         )
     )
-    page = RedditCollector(access_token="t").collect("acme")
+    page = _collector(access_token="t").collect("acme")
     assert page.signals[0].url == "https://elsewhere.test/post"
 
 
@@ -154,7 +166,7 @@ def test_a_subreddit_search_hits_the_subreddit_endpoint_and_restricts_it():
     route = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
     site_wide = respx.get(_SEARCH)
 
-    RedditCollector(access_token="t", subreddits=["r/sales"]).collect("pushback")
+    _collector(access_token="t", subreddits=["r/sales"]).collect("pushback")
 
     assert route.called
     assert not site_wide.called
@@ -164,7 +176,7 @@ def test_a_subreddit_search_hits_the_subreddit_endpoint_and_restricts_it():
 @respx.mock
 def test_without_subreddits_the_site_wide_endpoint_is_used():
     route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
-    RedditCollector(access_token="t").collect("pushback")
+    _collector(access_token="t").collect("pushback")
     assert route.called
     assert "restrict_sr" not in route.calls.last.request.url.params
 
@@ -180,7 +192,7 @@ def test_each_subreddit_is_searched_separately():
         )
     )
 
-    page = RedditCollector(access_token="t", subreddits=["r/sales", "r/consulting"]).collect("q")
+    page = _collector(access_token="t", subreddits=["r/sales", "r/consulting"]).collect("q")
 
     assert sales.called and consulting.called
     assert {signal.community for signal in page.signals} == {"r/sales", "r/consulting"}
@@ -192,7 +204,7 @@ def test_the_page_budget_is_split_across_subreddits():
     sales = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
     respx.get(CONSULTING_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    RedditCollector(access_token="t", subreddits=["sales", "consulting"]).collect("q", limit=50)
+    _collector(access_token="t", subreddits=["sales", "consulting"]).collect("q", limit=50)
     assert sales.calls.last.request.url.params["limit"] == "25"
 
 
@@ -202,7 +214,7 @@ def test_the_token_is_minted_once_for_all_subreddits():
     respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
     respx.get(CONSULTING_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    RedditCollector(client_id="i", client_secret="s", subreddits=["sales", "consulting"]).collect("q")
+    _collector(client_id="i", client_secret="s", subreddits=["sales", "consulting"]).collect("q")
     assert token.call_count == 1
 
 
@@ -214,7 +226,7 @@ def test_per_subreddit_cursors_are_carried_in_one_cursor():
     respx.get(CONSULTING_SEARCH).mock(
         return_value=httpx.Response(200, json=_listing({"id": "b", "title": "y"}, after="t3_c"))
     )
-    page = RedditCollector(access_token="t", subreddits=["sales", "consulting"]).collect("q")
+    page = _collector(access_token="t", subreddits=["sales", "consulting"]).collect("q")
     assert page.next_cursor == "sales:t3_s|consulting:t3_c"
 
 
@@ -223,7 +235,7 @@ def test_a_composite_cursor_resumes_each_subreddit_at_its_own_depth():
     sales = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
     consulting = respx.get(CONSULTING_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    RedditCollector(access_token="t", subreddits=["sales", "consulting"]).collect(
+    _collector(access_token="t", subreddits=["sales", "consulting"]).collect(
         "q", cursor="sales:t3_s|consulting:t3_c"
     )
     assert sales.calls.last.request.url.params["after"] == "t3_s"
@@ -236,7 +248,7 @@ def test_an_exhausted_subreddit_drops_out_of_later_pages():
     sales = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
     consulting = respx.get(CONSULTING_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    RedditCollector(access_token="t", subreddits=["sales", "consulting"]).collect(
+    _collector(access_token="t", subreddits=["sales", "consulting"]).collect(
         "q", cursor="sales:t3_s"
     )
     assert sales.called
@@ -246,7 +258,7 @@ def test_an_exhausted_subreddit_drops_out_of_later_pages():
 @respx.mock
 def test_the_cursor_is_none_once_every_subreddit_is_exhausted():
     respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing(after=None)))
-    page = RedditCollector(access_token="t", subreddits=["sales"]).collect("q")
+    page = _collector(access_token="t", subreddits=["sales"]).collect("q")
     assert page.next_cursor is None
 
 
@@ -260,7 +272,7 @@ def test_examined_counts_raw_items_across_subreddits():
             200, json=_listing({"id": "b", "title": "y"}, {"id": "c", "title": "z"})
         )
     )
-    page = RedditCollector(access_token="t", subreddits=["sales", "consulting"]).collect("q")
+    page = _collector(access_token="t", subreddits=["sales", "consulting"]).collect("q")
     assert page.examined == 3
 
 
@@ -268,10 +280,10 @@ def test_examined_counts_raw_items_across_subreddits():
 def test_posts_are_requested_by_default_and_comments_on_request():
     route = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
 
-    RedditCollector(access_token="t", subreddits=["sales"]).collect("q")
+    _collector(access_token="t", subreddits=["sales"]).collect("q")
     assert route.calls.last.request.url.params["type"] == "link"
 
-    RedditCollector(access_token="t", subreddits=["sales"], include_comments=True).collect("q")
+    _collector(access_token="t", subreddits=["sales"], include_comments=True).collect("q")
     assert route.calls.last.request.url.params["type"] == "comment"
 
 
@@ -291,7 +303,7 @@ def test_a_comment_body_becomes_the_signal_text():
             ),
         )
     )
-    page = RedditCollector(
+    page = _collector(
         access_token="t", subreddits=["sales"], include_comments=True
     ).collect("pushback")
 
@@ -310,7 +322,7 @@ def test_the_window_picks_the_narrowest_reddit_time_bucket(days_back, expected):
     from datetime import datetime, timedelta, timezone
 
     route = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
-    RedditCollector(access_token="t", subreddits=["sales"]).collect(
+    _collector(access_token="t", subreddits=["sales"]).collect(
         "q", since=datetime.now(timezone.utc) - timedelta(days=days_back)
     )
     assert route.calls.last.request.url.params["t"] == expected
@@ -319,11 +331,55 @@ def test_the_window_picks_the_narrowest_reddit_time_bucket(days_back, expected):
 @respx.mock
 def test_no_time_bucket_is_sent_without_a_window():
     route = respx.get(SALES_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
-    RedditCollector(access_token="t", subreddits=["sales"]).collect("q")
+    _collector(access_token="t", subreddits=["sales"]).collect("q")
     assert "t" not in route.calls.last.request.url.params
 
 
 @respx.mock
 def test_missing_credentials_still_raise_with_subreddits_configured():
     with pytest.raises(RuntimeError, match="REDDIT_CLIENT_ID"):
-        RedditCollector(subreddits=["sales"]).collect("q")
+        _collector(subreddits=["sales"]).collect("q")
+
+
+# -- User-Agent: Reddit's API rules mandate the format and the contact account --
+
+
+@respx.mock
+def test_requests_identify_the_app_and_operating_account():
+    """Reddit mandates ``<platform>:<app ID>:<version> (by /u/<username>)``."""
+    route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
+
+    _collector(access_token="t", username="rolan").collect("q")
+
+    assert route.calls.last.request.headers["user-agent"] == (
+        f"linux:demand-radar:v{__version__} (by /u/rolan)"
+    )
+
+
+@respx.mock
+def test_the_token_request_identifies_itself_too():
+    """The token endpoint is rate limited and sees the same rules."""
+    token = respx.post(_TOKEN).mock(return_value=httpx.Response(200, json={"access_token": "t"}))
+    respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
+
+    _collector(client_id="i", client_secret="s", username="rolan").collect("q")
+
+    assert token.calls.last.request.headers["user-agent"] == (
+        f"linux:demand-radar:v{__version__} (by /u/rolan)"
+    )
+
+
+@pytest.mark.parametrize("written", ["u/rolan", "/u/rolan", "  rolan  "])
+def test_the_username_is_accepted_the_way_reddit_displays_it(written):
+    assert RedditCollector(username=written).username == "rolan"
+
+
+@respx.mock
+def test_a_missing_username_refuses_to_call_reddit():
+    """Misidentifying the client is a policy violation, not a cosmetic default."""
+    route = respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing()))
+
+    with pytest.raises(RuntimeError, match="REDDIT_USERNAME"):
+        RedditCollector(access_token="t").collect("q")
+
+    assert not route.called

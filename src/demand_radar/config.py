@@ -93,6 +93,9 @@ class Config:
     reddit_client_id: str | None = field(default_factory=lambda: _clean("REDDIT_CLIENT_ID"))
     reddit_client_secret: str | None = field(default_factory=lambda: _clean("REDDIT_CLIENT_SECRET"))
     reddit_access_token: str | None = field(default_factory=lambda: _clean("REDDIT_ACCESS_TOKEN"))
+    #: Reddit requires the operating account as contact information in the
+    #: User-Agent of every request, so it is configuration, not a constant.
+    reddit_username: str | None = field(default_factory=lambda: _clean("REDDIT_USERNAME"))
     rss_feeds: list[str] = field(default_factory=lambda: _env_list("DEMAND_RADAR_RSS_FEEDS"))
 
     @property
@@ -107,6 +110,7 @@ class Config:
                 "client_id": self.reddit_client_id,
                 "client_secret": self.reddit_client_secret,
                 "access_token": self.reddit_access_token,
+                "username": self.reddit_username,
             }
         if name == "rss":
             return {"feeds": self.rss_feeds}
