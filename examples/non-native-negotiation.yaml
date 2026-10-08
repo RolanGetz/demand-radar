@@ -1,0 +1,35 @@
+# An example hypothesis. Copy it, edit the statement and queries, and run:
+#   demand-radar run examples/non-native-negotiation.yaml --period 6m
+
+name: non-native-negotiation
+statement: >
+  B2B professionals who struggle to negotiate, sell, or handle difficult work
+  conversations in a language that is not their native language.
+
+# Expanded, multilingual search terms. Language is a first-class dimension, so
+# these deliberately cover several languages rather than assuming English.
+#
+# Keep terms short and distinctive. Sources rank loosely rather than matching
+# phrases, so every word in a query must appear for an item to be kept — a long
+# sentence here will quietly match nothing.
+queries:
+  - non-native speaker
+  - second language
+  - negotiation
+  - client call
+  - verhandlung
+  - negociación
+
+sources:
+  - hackernews
+
+# A natural-language test, applied by the screening stage. Kept as prose so a
+# human researcher can review and adjust the judgement being made.
+relevance_criteria: >
+  The author describes their own difficulty in a professional conversation
+  (sales, negotiation, client, or stakeholder) conducted in a language they are
+  not fully fluent in. Language-learning posts with no work context are not
+  relevant.
+
+# Empty means any language.
+languages: []

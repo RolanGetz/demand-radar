@@ -1,519 +1,296 @@
 # Demand Radar
 
-> Open-source demand intelligence framework for discovering where real user needs, pain points, and emerging opportunities appear across public online communities.
+> An open-source, self-hosted research tool that studies how people describe
+> problems in their own words across public online communities.
+
+**Status:** Phase 1 (Research MVP) is implemented and tested. See [ROADMAP.md](ROADMAP.md) for later phases.
+
+Demand Radar is a **personal, non-commercial, open-source project**. It is a
+local command-line tool: it runs on your own machine, stores results in a local
+SQLite file, and is **strictly read-only** against every source it reads — it
+never posts, comments, votes, or sends messages anywhere. See
+[Responsible use](#responsible-use).
+
+---
 
 ## Why this project exists
 
-Most distribution decisions are still made from intuition:
+Keyword and brand monitoring answers "who mentioned us." This project is built
+around a different question:
 
-- Which communities should we enter?
-- Which languages and markets deserve attention?
-- What problems are people actively discussing?
-- Which pain points are growing over time?
-- Where is there strong demand but weak competition?
-- Which channels should we invest in before building an audience there?
+> **How do people describe a problem when they do not yet know the vocabulary
+> for it?**
 
-Traditional social listening tools are usually optimized for brand mentions, keywords, sentiment, or competitor monitoring.
-
-Demand Radar is built around a different question:
-
-> **Where are people expressing a real need, even when they do not know the product or category name yet?**
-
-The goal is to turn public conversations into structured demand signals that can guide distribution, product positioning, market research, and channel development.
+People rarely describe a difficulty in the terms an outsider would search for.
+Someone who says *"I freeze when the buyer pushes back"* is describing a problem
+that no keyword list for it would catch. The goal is to read public conversation
+closely enough to recognise the underlying need, preserve the original wording,
+and tell an honest story about how certain each conclusion is — so that research
+rests on what people actually said rather than on assumptions.
 
 ---
 
-## Core idea
+## Quick start
 
-A user starts with a hypothesis, for example:
-
-> B2B professionals who struggle to negotiate in a language that is not their native language.
-
-Demand Radar then:
-
-1. Expands the hypothesis into multilingual search queries and semantic patterns.
-2. Collects public discussions from supported sources.
-3. Normalizes and deduplicates the data.
-4. Filters irrelevant results.
-5. Classifies each signal by pain, role, language, intent, urgency, and other dimensions.
-6. Groups similar signals into semantic clusters.
-7. Tracks frequency and change over time.
-8. Produces a research view of where demand exists and which channels may be worth testing.
-
-The desired output is not just a list of posts.
-
-It is a structured map such as:
-
-```text
-pain × role × language × source × market × intent × time
-```
-
----
-
-## What we want to learn
-
-Demand Radar should help answer questions such as:
-
-- What problems are people repeatedly describing?
-- How do people describe those problems in their own words?
-- Which problems are increasing in frequency?
-- Which professional roles experience them most often?
-- Which language combinations appear most frequently?
-- Which communities contain the strongest concentration of relevant demand?
-- Where are users actively looking for solutions?
-- Where is competition already dense?
-- Where do existing solutions disappoint users?
-- Which channels should be tested for distribution?
-- Which content themes are supported by real demand rather than assumptions?
-
----
-
-## Goals
-
-### 1. Detect latent demand
-
-Go beyond exact keyword matching.
-
-The system should identify discussions that express a relevant problem even when the author does not use the terminology we expect.
-
-For example, these may describe the same underlying problem:
-
-```text
-"I freeze when the buyer pushes back in German."
-
-"I understand the client, but I cannot answer quickly enough."
-
-"I realized after the meeting that procurement changed what they promised."
-
-"I keep losing context between enterprise calls."
-```
-
-The framework should recognize the underlying demand, not just the words.
-
-### 2. Support multilingual research
-
-Language should be a first-class dimension.
-
-Demand Radar must not assume that English is the only target or second language.
-
-A professional conversation can happen in any supported language, and the user's native language may also be any language.
-
-Examples:
-
-```text
-Portuguese → English
-Spanish → German
-French → English
-Polish → French
-English → Japanese
-```
-
-The framework should be able to discover these patterns from data rather than hard-code them.
-
-### 3. Separate collection from intelligence
-
-The system should have two clear layers:
-
-```text
-Data Plane
-Sources → Collectors → Normalization → Deduplication → Storage
-
-Intelligence Plane
-Hypotheses → Relevance → Classification → Clustering → Trends → Opportunities
-```
-
-This separation should make it possible to reuse collected data across many hypotheses without fetching the same content repeatedly.
-
-### 4. Preserve original Voice of Customer
-
-The original wording of relevant posts and comments is valuable.
-
-Demand Radar should retain the source text and metadata so that later analysis can reveal:
-
-- recurring vocabulary,
-- user objections,
-- unmet needs,
-- positioning language,
-- content ideas,
-- landing-page copy,
-- product terminology.
-
-The system should not reduce everything to abstract scores.
-
-### 5. Support historical and continuous research
-
-Two modes are important.
-
-#### Historical research
-
-Analyze a defined period:
-
-```text
-today
-7 days
-30 days
-6 months
-12 months
-custom range
-```
-
-#### Continuous radar
-
-Continuously collect new signals and detect meaningful changes:
-
-- a pain cluster is growing,
-- a new problem appears,
-- purchase intent increases,
-- a competitor starts appearing more often,
-- a new community becomes relevant,
-- a language pair begins to emerge.
-
----
-
-## Initial sources
-
-The first versions should prioritize sources where useful public conversations are accessible and technically practical to collect.
-
-Potential sources include:
-
-- Reddit
-- Hacker News
-- YouTube
-- RSS / Atom feeds
-- Stack Overflow / Stack Exchange
-- Mastodon
-- Bluesky
-- public forums
-- additional sources where permitted by their APIs, terms, and access model
-
-Source support should be modular.
-
-A source adapter should not contain business logic about demand classification.
-
----
-
-## Analysis pipeline
-
-The target pipeline is:
-
-```text
-Hypothesis
-    ↓
-Query / Semantic Expansion
-    ↓
-Source Retrieval
-    ↓
-Normalization
-    ↓
-Deduplication
-    ↓
-Cheap Relevance Filter
-    ↓
-Structured Semantic Screening
-    ↓
-Classification
-    ↓
-Embedding / Clustering
-    ↓
-Trend Detection
-    ↓
-Demand / Opportunity Analysis
-    ↓
-Research Workspace
-```
-
-A likely implementation strategy is to use inexpensive deterministic or embedding-based filtering first, then apply more expensive models only to the reduced set of candidates.
-
-Structured decision models such as TypeSafe Jev can be useful for repeated high-volume classification tasks.
-
-Possible dimensions include:
-
-```text
-relevant
-pain_type
-role
-industry
-b2b_context
-native_language
-conversation_language
-commercial_intent
-urgency
-solution_seeking
-competitor_mentioned
-existing_solution_dissatisfaction
-distribution_opportunity
-```
-
-Not every field must be known for every signal.
-
-Uncertainty should be preserved rather than replaced with guesses.
-
----
-
-## UX direction
-
-Demand Radar should support both CLI and web workflows.
-
-### CLI
-
-The CLI is useful for:
-
-- development,
-- scheduled jobs,
-- automation,
-- backfills,
-- CI,
-- experimentation,
-- power users.
-
-Possible interface:
+Demand Radar runs with **no credentials**: Hacker News needs no key, and the first-stage relevance filter is local.
 
 ```bash
-demand-radar run hypothesis.yaml
-demand-radar backfill --since 6m
-demand-radar watch
-demand-radar serve
+python -m venv .venv
+source .venv/bin/activate
+pip install -e ".[dev]"
+
+# Collect, screen, and report in one pass
+demand-radar run examples/non-native-negotiation.yaml --period 6m
 ```
 
-### Web research workspace
+To enable structured classification, copy `.env.example` to `.env` and set `GEMINI_API_KEY`.
 
-The web interface should be the primary product experience.
+### Commands
 
-It should focus on research, not crawler configuration.
+The CLI maps onto the two planes rather than hiding them:
 
-Example workflow:
+```bash
+demand-radar sources                        # list collectors and their config needs
+demand-radar collect hypothesis.yaml        # Data Plane only — fetch and store
+demand-radar screen  hypothesis.yaml        # Intelligence Plane only — no network
+demand-radar run     hypothesis.yaml        # both, then report
+demand-radar report  hypothesis.yaml        # read stored results only
+demand-radar signals                        # what has been collected, any hypothesis
+```
+
+Useful options: `--period` (`today`, `7d`, `6m`, `1y`), `--format` (`table`, `json`, `csv`, `signals-json`), `--out`, `--db`, `--reclassify`.
+
+---
+
+## Architecture
+
+The roadmap's central requirement is that **collection is separated from intelligence**. That boundary is enforced by package structure, not convention:
 
 ```text
-New Research
-
-Hypothesis:
-"Professionals struggling with negotiations in a non-native language"
-
-Period:
-6 months
-
-Sources:
-Reddit, Hacker News, YouTube, RSS
-
-Languages:
-Any
+src/demand_radar/
+├── domain/              # shared vocabulary. No I/O, no HTTP, no SQL, no model calls.
+│   ├── signal.py        #   Signal — one public utterance, nothing inferred
+│   ├── hypothesis.py    #   Hypothesis + TimeWindow — the research question
+│   └── classification.py#   Classification — derived dimensions, per hypothesis
+│
+├── data_plane/          # sources → collectors → normalise → dedupe → store
+│   ├── collectors/      #   one module per source, no demand logic allowed
+│   ├── storage/         #   SQLite: signals / classifications / collection_state
+│   └── collection.py    #   the collection run: paging, retries, isolation
+│
+├── intelligence/        # hypotheses → relevance → classification → reporting
+│   ├── relevance.py     #   stage 1: cheap, local, deterministic
+│   ├── jev_schema.py    #   stage 2: our dimensions as typed Jev questions
+│   ├── jev.py           #   stage 2: the TypeSafe Jev decider
+│   ├── screening_schema.py #  stage 3: free-text schema + strict parsing
+│   ├── providers.py     #   stage 3: Gemini transport (+ a null default)
+│   ├── screening.py     #   orchestrates the three stages
+│   └── reporting.py     #   pain × role × language × source × community
+│
+├── cli/                 # terminal interface and rendering only
+└── config.py            # environment configuration
 ```
 
-Possible output:
+### What the separation buys
 
-```text
-1,842 relevant signals
-11 pain clusters
-7 language patterns
-23 communities
-4 rising trends
+**One dataset, many hypotheses.** A signal is collected once and stored with its raw payload. Each hypothesis classifies it independently, keyed by `(signal_id, hypothesis)`. Screening a second hypothesis costs model calls — never refetching:
+
+```bash
+demand-radar run    first-hypothesis.yaml    # fetches
+demand-radar screen second-hypothesis.yaml   # no network at all
 ```
 
-Users should be able to drill down from aggregate insights to the original source material.
+**Raw data is never overwritten by conclusions.** `signals` and `classifications` are separate tables. Deleting every verdict for a hypothesis (`--reclassify`) loses no collected data.
+
+### Design decisions worth knowing
+
+**Deduplication is by content identity.** `Signal.id` hashes the source's own id, else the URL, else the content — deliberately *not* the query, so the same post found by two expanded queries converges on one row.
+
+**Staged by cost — three stages, each paying only for what the last one kept.**
+
+| Stage | What it is | Speed | Decides |
+|---|---|---|---|
+| 1 | local filter | instant, free | drops empty, short, promotional |
+| 2 | **TypeSafe Jev** | 250–450 ms | relevance + every enumerable dimension |
+| 3 | Gemini | seconds | open-ended text and verbatim quotes |
+
+Jev carries the bulk of the work. It is a System One model — it *chooses* from
+defined options rather than generating text, and every question in a request is
+evaluated in parallel, so one call settles relevance, pain type, intent,
+urgency, and four boolean flags at once. The generative model is then asked only
+about signals Jev already judged relevant, and only for what Jev structurally
+cannot produce: roles, industries, language codes, quotes.
+
+On live data that means a run where Jev rejects everything costs **zero**
+generative calls. Jev's typed answers win on every dimension it can decide;
+the generative model never overrides them.
+
+Every stage is optional. With no keys the cheap verdict is recorded as-is; with
+Jev alone the classification is complete except its text fields. `Relevance.stage`
+records which stage decided (`cheap`, `jev`, `jev+generative`), so a dataset is
+always honest about how it was judged.
+
+**Confidence is distribution shape, not likelihood.** Jev returns `1.0` when all
+probability sits on one outcome and `0.0` when it is spread evenly. Below `0.5`
+the answer is the model saying it does not know, so the dimension is recorded as
+`None` rather than its most-likely guess — the roadmap's "preserve uncertainty"
+rule on a measured footing rather than the model's discretion.
+
+**The cheap filter is generous on purpose.** Latent demand is usually phrased without the vocabulary we expect ("I freeze when the buyer pushes back"), so a precise first stage would discard exactly what the project exists to find. Precision is stage 2's job — and when no model is configured, unmarked prose is *rejected* rather than passed, because "relevant" must never rest on text length alone.
+
+**Uncertainty is preserved, never guessed.** Every inferred dimension is nullable end to end — schema, parser, SQL, and export. A NULL boolean reads back as `None`, not `False`, and `unknown` appears in breakdowns because missing coverage is itself a finding.
+
+**Quotes are verified verbatim.** A model-returned quote is kept only if it genuinely appears in the signal, so a paraphrase cannot contaminate the Voice of Customer library.
+
+**Historical correctness.** A window resolves to absolute bounds once, up front. Signals are filtered against it locally as well as in the source query, so a source that ignores date bounds cannot leak later data into an earlier period's analysis.
+
+**Failures are isolated and visible.** One source failing (rate limit, missing credential, network) never sinks a run; the error is recorded against that source. A model failure degrades to the cheap verdict rather than discarding the signal, and the error is surfaced.
 
 ---
 
-## Architecture principles
+## Writing a hypothesis
 
-### Source adapters are replaceable
+```yaml
+name: non-native-negotiation
+statement: >
+  B2B professionals who struggle to negotiate in a language that is not
+  their native language.
 
-Collectors should be modular and independently maintainable.
+queries:                  # expanded, multilingual; language is first-class
+  - non-native speaker
+  - second language
+  - verhandlung
+sources: [hackernews]
+relevance_criteria: >     # natural-language test, applied at screening
+  The author describes their own difficulty in a professional conversation
+  conducted in a language they are not fluent in.
+languages: []             # empty means any
+```
 
-### Hypotheses are reusable
+### Targeting communities
 
-One collected dataset should support many research hypotheses.
+Which communities to search is part of the research question, so it lives in the
+hypothesis rather than the environment — credentials stay in `.env`:
 
-### Raw data is preserved
+```yaml
+sources: [reddit]
+source_options:
+  reddit:
+    subreddits: [r/sales, r/consulting, r/msp]
+    include_comments: true     # comments are where people describe their own difficulty
+```
 
-Derived classifications should not replace original content.
+Each subreddit is searched separately with `restrict_sr`, so Reddit cannot widen
+the query back out to unrelated communities. Names are accepted as `r/sales`,
+`/r/sales`, or `sales`. The per-page budget is split across subreddits so one
+busy community cannot starve the others, and an exhausted subreddit drops out of
+later pages instead of restarting.
 
-### AI is used selectively
+See `examples/sales-pushback-reddit.yaml` for a complete hypothesis.
 
-Do not send every collected item directly to an expensive LLM.
-
-Use staged filtering and structured models where possible.
-
-### Historical correctness matters
-
-When researching a past period, the system should avoid leaking future information into that analysis.
-
-### Results should be explainable
-
-Whenever possible, the user should be able to trace a conclusion back to the underlying signals.
-
-### Local-first where practical
-
-Research data should be easy to run and store locally.
-
-Hosted deployments may be added later, but self-hosting should remain a first-class option.
-
----
-
-## What this project is not
-
-Demand Radar is not intended to be:
-
-- a generic brand mention tracker,
-- a simple keyword alert system,
-- an automated spam or outreach bot,
-- a tool for mass-posting promotional messages,
-- a generic sentiment dashboard,
-- a replacement for qualitative customer research.
-
-Its purpose is to identify and structure demand signals so that humans can make better product and distribution decisions.
+Keep query terms **short and distinctive**. Sources rank loosely rather than matching phrases, so a collector requires every term in a query to appear — a long sentence will quietly match nothing. A zero-result run says so explicitly.
 
 ---
 
-## Initial development strategy
+## Sources
 
-This project is being built as a transformation of an existing internal codebase rather than as a direct fork of another project.
+| Source | Config | Notes |
+|---|---|---|
+| Hacker News | none | Public Algolia API. Works on a clean clone, no account needed. |
+| Reddit | OAuth credentials | Read-only search, site-wide or inside named subreddits. See below. |
+| RSS / Atom | feed URLs | Any feed; set `DEMAND_RADAR_RSS_FEEDS`. |
 
-We intend to reuse ideas and, where appropriate, compatible open-source components from existing projects.
+Every adapter is read-only: it issues search and fetch requests and nothing else.
+Adding a source is one class plus a registry entry, and adapters must contain no
+demand-classification logic.
 
-Projects currently used as references include:
+### Reddit access
 
-### Harken
+The Reddit adapter uses Reddit's official Data API over OAuth
+(`grant_type=client_credentials`, app-only). It calls exactly two endpoints:
 
-Useful reference areas:
+```
+GET https://oauth.reddit.com/r/{subreddit}/search   (restrict_sr=true)
+GET https://oauth.reddit.com/search
+```
 
-- multi-source ingestion,
-- source adapters,
-- normalization,
-- deduplication,
-- local storage,
-- CLI and dashboard patterns.
+It contains no code that posts, comments, votes, messages, or modifies anything
+on Reddit.
 
-Harken is licensed under the MIT License.
-
-### TradingAgents
-
-Useful reference areas:
-
-- provider / vendor abstraction,
-- historical analysis windows,
-- TypeSafe Jev screening,
-- typed analytical stages,
-- CLI and batch execution patterns.
-
-TradingAgents is licensed under Apache License 2.0.
-
-### OpenMagpie
-
-Useful reference areas:
-
-- feed / watch separation,
-- reusable ingestion,
-- natural-language relevance criteria,
-- semantic filtering model.
-
-OpenMagpie's open-source core is licensed under Apache License 2.0, with separately licensed enterprise code where applicable.
-
-Any reused code must retain the attribution and license notices required by its original license.
+Access to Reddit's Data API requires approval under Reddit's
+[Responsible Builder Policy](https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy);
+set `REDDIT_CLIENT_ID` and `REDDIT_CLIENT_SECRET` in `.env` once you have it.
+Without Reddit credentials the rest of the tool still works — Hacker News needs
+no key at all, and a failing or unconfigured source never sinks a run.
 
 ---
 
-## Near-term roadmap
+## Development
 
-### Phase 1 — Research MVP
+```bash
+pytest          # 401 tests, fully offline (no API keys needed or used)
+ruff check .
+```
 
-- [ ] Define the core data model
-- [ ] Implement `Hypothesis`
-- [ ] Add Reddit collector
-- [ ] Add Hacker News collector
-- [ ] Add RSS / Atom collector
-- [ ] Normalize all source items into a shared schema
-- [ ] Store raw and normalized data locally
-- [ ] Add deduplication
-- [ ] Add date-range backfills
-- [ ] Add relevance screening
-- [ ] Add structured classification
-- [ ] Build a minimal CLI
-- [ ] Produce CSV / JSON research output
+Tests never read ambient credentials: the screening fixtures inject an explicitly
+disabled Jev decider, so a developer with real keys in `.env` cannot accidentally
+make live calls from the suite.
 
-### Phase 2 — Intelligence
+### Watching a run
 
-- [ ] Semantic clustering
-- [ ] Pain taxonomy
-- [ ] Role detection
-- [ ] Language-pair detection
-- [ ] Purchase-intent detection
-- [ ] Competitor and solution detection
-- [ ] Existing-solution dissatisfaction
-- [ ] Trend analysis
-- [ ] Opportunity scoring
-- [ ] Cross-source aggregation
+`--verbose` is the dev view — one line per decision showing which stage decided,
+how certain it was, and how long it took:
 
-### Phase 3 — Research workspace
+```
+screening start hypothesis=non-native-negotiation pending=14 jev=jev-latest generative=gemini-2.5-flash
+d9a3d39efa07b223 relevant=0.01 → dropped  477ms
+27c6f824e8b52b72 relevant=0.05 → dropped  281ms
+a3f2b1c8d9e04f17 relevant=0.96 pain=expression(0.91) urgency=high(0.74) b2b=True  263ms
+screening done examined=14 jev_calls=13 jev_rejected=12 generative_calls=1 relevant=1 cost_usd=0.000723
+```
 
-- [ ] Web dashboard
-- [ ] Research projects
-- [ ] Saved hypotheses
-- [ ] Historical comparison
-- [ ] Trend visualization
-- [ ] Source drill-down
-- [ ] Filters by language, role, source, and pain
-- [ ] Continuous monitoring
-- [ ] Alerts for meaningful changes
-
-### Phase 4 — Distribution intelligence
-
-- [ ] Community discovery
-- [ ] Channel scoring
-- [ ] Content opportunity detection
-- [ ] Voice-of-Customer library
-- [ ] Market / language comparison
-- [ ] Distribution experiment tracking
+Tests mirror the source layout under `tests/domain`, `tests/data_plane`, `tests/intelligence`, and `tests/cli`.
 
 ---
 
-## Example use cases
+## Responsible use
 
-### Product discovery
+This project reads public conversations written by real people. That carries
+obligations, and they are design constraints here rather than a policy page.
 
-> Is there recurring demand for a tool that remembers changing stakeholder positions across long B2B deals?
+**Read-only, everywhere.** No adapter posts, comments, votes, follows, or sends
+messages. There is no code path that writes to any source.
 
-### Distribution research
+**Within each source's own rules.** Access goes through official APIs with
+proper authentication — never scraping around them, and never circumventing rate
+limits. Reddit access additionally requires approval under its
+[Responsible Builder Policy](https://support.reddithelp.com/hc/en-us/articles/42728983564564-Responsible-Builder-Policy).
 
-> Which communities contain the highest concentration of non-native professionals discussing difficult sales conversations?
+**Deleted means deleted.** If someone removes their post or comment at the
+source, remove it locally too. Re-run collection periodically rather than
+treating the local database as a permanent archive.
 
-### Market selection
+**Not for training models.** Collected content is for reading and analysis by a
+person. Do not use it as training data for machine-learning or AI models — most
+sources, Reddit included, prohibit this outright.
 
-> Is demand stronger among Portuguese-speaking, Spanish-speaking, or German-speaking professionals?
+**No profiling of individuals.** The unit of analysis is the problem being
+described, not the person describing it. Do not use this to infer sensitive
+characteristics about anyone, to re-identify people, or to match them against
+off-platform identifiers.
 
-### Content strategy
+**Local-first.** Data stays in a local SQLite file on your own machine. Nothing
+is uploaded, shared, or sold.
 
-> Which negotiation problems are being discussed repeatedly but are poorly covered by existing content?
-
-### Competitive research
-
-> What do users complain about when discussing existing meeting assistants, sales intelligence tools, and conversation products?
-
-### Voice of Customer
-
-> What exact language do users use when describing loss of context, pressure tactics, or difficulty responding in a second language?
-
----
-
-## Project status
-
-Early-stage research and development.
-
-The architecture, naming, data model, and scoring system are expected to evolve significantly.
-
-The immediate objective is not to build a large platform.
-
-The immediate objective is to prove that a reusable pipeline can turn noisy public conversations into reliable, actionable demand intelligence.
+**Not an outreach tool.** This exists to help someone understand a problem
+space, not to build contact lists or message anyone.
 
 ---
+
+## Attribution
+
+Architectural patterns for multi-source ingestion, source adapters, normalization, deduplication, local storage, and CLI structure are adapted from [Harken](https://github.com/VladUZH/harken) (MIT License).
 
 ## License
 
-License for this project has not yet been finalized.
-
-Before public release, all reused third-party code and dependencies must be reviewed for license compatibility and attribution requirements.
-
----
-
-## Working principle
-
-> **Do not decide where to distribute first. Measure where demand already exists.**
+MIT — see [LICENSE](LICENSE).

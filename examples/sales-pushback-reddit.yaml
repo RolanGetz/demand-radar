@@ -1,0 +1,51 @@
+# Demand research inside the communities where this audience actually talks.
+#
+# Hacker News is developers; sales and B2B negotiation happen on Reddit. Searching
+# named subreddits is both cheaper and far less noisy than ranking the whole site.
+#
+#   demand-radar collect examples/sales-pushback-reddit.yaml --period 6m --pages 1
+#   demand-radar screen  examples/sales-pushback-reddit.yaml --period 6m --limit 25
+#   demand-radar report  examples/sales-pushback-reddit.yaml --period 6m
+#
+# Requires REDDIT_CLIENT_ID + REDDIT_CLIENT_SECRET (or REDDIT_ACCESS_TOKEN) in .env.
+
+name: sales-pushback
+statement: >
+  B2B sales and customer-facing professionals who struggle to hold their ground
+  in difficult commercial conversations — especially when the conversation
+  happens in a language that is not their first.
+
+# Short, distinctive terms. Every word in a query must appear in an item for it
+# to be kept, so a long sentence here would quietly match nothing.
+queries:
+  - pushback
+  - freeze
+  - objection
+  - second language
+  - non-native
+
+sources:
+  - reddit
+
+# Which communities to search is part of the research question, so it lives here
+# rather than in the environment. Credentials stay in .env.
+source_options:
+  reddit:
+    subreddits:
+      - r/sales
+      - r/consulting
+      - r/msp
+      - r/techsales
+      - r/CustomerSuccess
+    # Comments are where people describe their own difficulty; posts are often
+    # just questions. Turn this off to halve the volume.
+    include_comments: true
+
+relevance_criteria: >
+  The author describes their own difficulty in a real professional conversation
+  — losing control of a negotiation, freezing under pushback, failing to respond
+  fast enough, or losing track of what was agreed. Generic sales advice, job
+  postings, self-promotion, and language-learning posts with no work context are
+  not relevant.
+
+languages: []
