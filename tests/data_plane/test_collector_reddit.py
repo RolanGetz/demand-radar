@@ -1,5 +1,6 @@
 """Reddit collector — OAuth token minting and listing normalisation, HTTP mocked."""
 
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -383,3 +384,49 @@ def test_a_missing_username_refuses_to_call_reddit():
         RedditCollector(access_token="t").collect("q")
 
     assert not route.called
+
+
+# -- Rate limit: Reddit returns the budget on every response ------------------
+
+
+def _rate_limit_headers(remaining):
+    return {
+        "x-ratelimit-remaining": remaining,
+        "x-ratelimit-used": "4",
+        "x-ratelimit-reset": "300",
+    }
+
+
+@respx.mock
+def test_the_remaining_quota_is_reported_in_the_dev_view(caplog):
+    respx.get(_SEARCH).mock(
+        return_value=httpx.Response(200, json=_listing(), headers=_rate_limit_headers("96"))
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="demand_radar.data_plane.collectors.reddit"):
+        _collector(access_token="t").collect("q")
+
+    assert "96 left" in caplog.text
+
+
+@respx.mock
+def test_a_nearly_exhausted_quota_is_a_warning(caplog):
+    """Below the threshold the number is actionable, not just informative."""
+    respx.get(_SEARCH).mock(
+        return_value=httpx.Response(200, json=_listing(), headers=_rate_limit_headers("3"))
+    )
+
+    with caplog.at_level(logging.DEBUG, logger="demand_radar.data_plane.collectors.reddit"):
+        _collector(access_token="t").collect("q")
+
+    assert caplog.records[-1].levelno == logging.WARNING
+    assert "nearly exhausted" in caplog.text
+
+
+@respx.mock
+@pytest.mark.parametrize("headers", [{}, {"x-ratelimit-remaining": "not-a-number"}])
+def test_a_missing_or_unparsable_budget_is_not_an_error(headers):
+    """A response without usable headers still has to yield its signals."""
+    respx.get(_SEARCH).mock(return_value=httpx.Response(200, json=_listing(), headers=headers))
+
+    assert _collector(access_token="t").collect("q").signals == []

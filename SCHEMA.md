@@ -1,6 +1,6 @@
 # Demand Radar — Architecture Schema
 
-Visual map of the architecture described in [README.md](README.md) and [ROADMAP.md](ROADMAP.md).
+Visual map of the architecture described in [README.md](README.md).
 
 Legend: `[x]` implemented (Phase 1) · `[ ]` planned (Phase 2–4).
 

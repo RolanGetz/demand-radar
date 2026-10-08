@@ -14,6 +14,7 @@ Reddit cannot widen the query back out to unrelated communities.
 
 from __future__ import annotations
 
+import logging
 from datetime import datetime, timezone
 
 import httpx
@@ -30,6 +31,13 @@ _MAX_PER_PAGE = 100
 #: Reddit mandates this exact shape and throttles clients that ignore it:
 #: ``<platform>:<app ID>:<version string> (by /u/<reddit username>)``.
 _USER_AGENT = "linux:demand-radar:v{version} (by /u/{username})"
+
+#: Reddit's free tier allows 100 queries per minute per client id, averaged over
+#: a ten-minute window. Below this many remaining calls, a run is close enough
+#: to the ceiling that it is worth saying so rather than only logging it.
+_RATE_LIMIT_WARN_BELOW = 10
+
+logger = logging.getLogger(__name__)
 
 #: Reddit's own window buckets. A narrower one than the research window keeps
 #: the API from paging through years of history we would only discard locally.
@@ -134,6 +142,7 @@ class RedditCollector(Collector):
         else:
             url = _SEARCH
         response = client.get(url, params=params)
+        _log_rate_limit(response)
         response.raise_for_status()
         return response.json()
 
@@ -208,6 +217,34 @@ class RedditCollector(Collector):
         if not token:
             raise RuntimeError("Reddit OAuth response did not contain an access token")
         return token
+
+
+def _log_rate_limit(response: httpx.Response) -> None:
+    """Report what Reddit says is left of the quota.
+
+    Reddit returns the budget on every response and its rules require that
+    clients not exceed it, so the numbers are read rather than assumed. A low
+    remainder is surfaced as a warning because by then it is actionable; the
+    routine case is dev-view detail.
+    """
+    remaining = response.headers.get("x-ratelimit-remaining")
+    if remaining is None:
+        return
+    try:
+        left = float(remaining)
+    except ValueError:
+        return
+    used = response.headers.get("x-ratelimit-used", "?")
+    resets_in = response.headers.get("x-ratelimit-reset", "?")
+    if left < _RATE_LIMIT_WARN_BELOW:
+        logger.warning(
+            "reddit rate limit nearly exhausted: %s left, %s used, resets in %ss",
+            remaining, used, resets_in,
+        )
+    else:
+        logger.debug(
+            "reddit rate limit: %s left, %s used, resets in %ss", remaining, used, resets_in
+        )
 
 
 def normalize_subreddits(values: list[str]) -> list[str]:
