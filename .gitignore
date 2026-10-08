@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.eggs/
+build/
+dist/
+.venv/
+venv/
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Demand Radar local data
+*.db
+*.db-shm
+*.db-wal
+demand-radar.db
+
+# Env / secrets
+.env
+.env.local
+
+# Local run notes, not part of the repository
+run.md
+
+# OS / editor
+.DS_Store
+*.swp
+.idea/
+.vscode/
+
+.coverage
+.claude/
+
+ROADMAP.md
